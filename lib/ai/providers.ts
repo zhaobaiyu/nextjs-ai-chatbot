@@ -1,10 +1,22 @@
-import { gateway } from "@ai-sdk/gateway";
+import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
+import { awsCredentialsProvider } from '@vercel/oidc-aws-credentials-provider';
 import {
   customProvider,
   extractReasoningMiddleware,
   wrapLanguageModel,
 } from "ai";
 import { isTestEnvironment } from "../constants";
+
+const AWS_REGION = process.env.AWS_REGION!;
+const AWS_ROLE_ARN = process.env.AWS_ROLE_ARN!;
+
+const bedrock = createAmazonBedrock({
+  region: AWS_REGION,
+  credentialProvider: awsCredentialsProvider({
+    roleArn: AWS_ROLE_ARN,
+  }),
+});
 
 export const myProvider = isTestEnvironment
   ? (() => {
@@ -25,12 +37,12 @@ export const myProvider = isTestEnvironment
     })()
   : customProvider({
       languageModels: {
-        "chat-model": gateway.languageModel("xai/grok-2-vision-1212"),
+        "chat-model": bedrock("us.anthropic.claude-sonnet-4-5-20250929-v1:0"),
         "chat-model-reasoning": wrapLanguageModel({
-          model: gateway.languageModel("xai/grok-3-mini"),
-          middleware: extractReasoningMiddleware({ tagName: "think" }),
+          model: bedrock("us.anthropic.claude-sonnet-4-5-20250929-v1:0"),
+          middleware: extractReasoningMiddleware({ tagName: "thinking" }),
         }),
-        "title-model": gateway.languageModel("xai/grok-2-1212"),
-        "artifact-model": gateway.languageModel("xai/grok-2-1212"),
+        "title-model": bedrock("us.anthropic.claude-sonnet-4-5-20250929-v1:0"),
+        "artifact-model": bedrock("us.anthropic.claude-sonnet-4-5-20250929-v1:0"),
       },
     });
