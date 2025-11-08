@@ -8,9 +8,18 @@ import { useActionState, useEffect, useState } from "react";
 import { AuthForm } from "@/components/auth-form";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
-import { type LoginActionState, login } from "../actions";
+import {
+  type LoginActionState,
+  login,
+  getRegistrationStatus,
+} from "../actions";
 
 export default function Page() {
+  const [isRegistrationEnabled, setIsRegistrationEnabled] = useState(true);
+
+  useEffect(() => {
+    getRegistrationStatus().then(setIsRegistrationEnabled);
+  }, []);
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -60,16 +69,18 @@ export default function Page() {
         </div>
         <AuthForm action={handleSubmit} defaultEmail={email}>
           <SubmitButton isSuccessful={isSuccessful}>Sign in</SubmitButton>
-          <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
-            {"Don't have an account? "}
-            <Link
-              className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
-              href="/register"
-            >
-              Sign up
-            </Link>
-            {" for free."}
-          </p>
+          {isRegistrationEnabled && (
+            <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
+              {"Don't have an account? "}
+              <Link
+                className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
+                href="/register"
+              >
+                Sign up
+              </Link>
+              {" for free."}
+            </p>
+          )}
         </AuthForm>
       </div>
     </div>

@@ -13,3 +13,4 @@ export const guestRegex = /^guest-\d+$/;
 export const DUMMY_PASSWORD = generateDummyPassword();
 
 export const isGuestModeEnabled = process.env.ENABLE_GUEST_MODE === "true";
+export const isRegistrationEnabled = process.env.ENABLE_REGISTRATION === "true";

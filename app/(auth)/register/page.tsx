@@ -25,7 +25,12 @@ export default function Page() {
   const { update: updateSession } = useSession();
 
   useEffect(() => {
-    if (state.status === "user_exists") {
+    if (state.status === "registration_disabled") {
+      toast({
+        type: "error",
+        description: "Registration is currently disabled!",
+      });
+    } else if (state.status === "user_exists") {
       toast({ type: "error", description: "Account already exists!" });
     } else if (state.status === "failed") {
       toast({ type: "error", description: "Failed to create account!" });

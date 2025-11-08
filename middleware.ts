@@ -4,6 +4,7 @@ import {
   guestRegex,
   isDevelopmentEnvironment,
   isGuestModeEnabled,
+  isRegistrationEnabled,
 } from "./lib/constants";
 
 export async function middleware(request: NextRequest) {
@@ -27,8 +28,16 @@ export async function middleware(request: NextRequest) {
     secureCookie: !isDevelopmentEnvironment,
   });
 
-  // Allow unauthenticated access to login and register pages
-  if (!token && ["/login", "/register"].includes(pathname)) {
+  // Allow unauthenticated access to login page
+  if (!token && pathname === "/login") {
+    return NextResponse.next();
+  }
+
+  // Allow unauthenticated access to register page only if registration is enabled
+  if (!token && pathname === "/register") {
+    if (!isRegistrationEnabled) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
     return NextResponse.next();
   }
 
@@ -45,8 +54,18 @@ export async function middleware(request: NextRequest) {
   const isGuest = guestRegex.test(token?.email ?? "");
 
   // Redirect authenticated non-guest users away from login/register pages
-  if (token && !isGuest && ["/login", "/register"].includes(pathname)) {
+  if (token && !isGuest && pathname === "/login") {
     return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  // Redirect authenticated non-guest users away from register page
+  if (token && !isGuest && pathname === "/register") {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  // Redirect to login if trying to access register page when registration is disabled
+  if (pathname === "/register" && !isRegistrationEnabled) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return NextResponse.next();
