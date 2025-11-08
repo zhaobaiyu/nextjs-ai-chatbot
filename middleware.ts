@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
+import {
+  guestRegex,
+  isDevelopmentEnvironment,
+  isGuestModeEnabled,
+} from "./lib/constants";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -24,11 +28,13 @@ export async function middleware(request: NextRequest) {
   });
 
   if (!token) {
-    const redirectUrl = encodeURIComponent(request.url);
-
-    return NextResponse.redirect(
-      new URL(`/api/auth/guest?redirectUrl=${redirectUrl}`, request.url)
-    );
+    if (isGuestModeEnabled) {
+      const redirectUrl = encodeURIComponent(request.url);
+      return NextResponse.redirect(
+        new URL(`/api/auth/guest?redirectUrl=${redirectUrl}`, request.url)
+      );
+    }
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   const isGuest = guestRegex.test(token?.email ?? "");

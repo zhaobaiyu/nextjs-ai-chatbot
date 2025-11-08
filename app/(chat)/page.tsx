@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { isGuestModeEnabled } from "@/lib/constants";
 import { generateUUID } from "@/lib/utils";
 import { auth } from "../(auth)/auth";
 
@@ -10,7 +11,10 @@ export default async function Page() {
   const session = await auth();
 
   if (!session) {
-    redirect("/api/auth/guest");
+    if (isGuestModeEnabled) {
+      redirect("/api/auth/guest");
+    }
+    redirect("/login");
   }
 
   const id = generateUUID();
