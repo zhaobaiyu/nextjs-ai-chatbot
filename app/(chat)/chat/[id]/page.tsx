@@ -5,6 +5,7 @@ import { auth } from "@/app/(auth)/auth";
 import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { isGuestModeEnabled } from "@/lib/constants";
 import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
 import { convertToUIMessages } from "@/lib/utils";
 
@@ -20,7 +21,10 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const session = await auth();
 
   if (!session) {
-    redirect("/api/auth/guest");
+    if (isGuestModeEnabled) {
+      redirect("/api/auth/guest");
+    }
+    redirect("/login");
   }
 
   if (chat.visibility === "private") {
