@@ -15,15 +15,17 @@ import {
 } from "../actions";
 
 export default function Page() {
-  const [isRegistrationEnabled, setIsRegistrationEnabled] = useState(true);
-
-  useEffect(() => {
-    getRegistrationStatus().then(setIsRegistrationEnabled);
-  }, []);
+  const [isRegistrationEnabled, setIsRegistrationEnabled] = useState<
+    boolean | null
+  >(null);
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [isSuccessful, setIsSuccessful] = useState(false);
+
+  useEffect(() => {
+    getRegistrationStatus().then(setIsRegistrationEnabled);
+  }, []);
 
   const [state, formAction] = useActionState<LoginActionState, FormData>(
     login,
@@ -57,6 +59,11 @@ export default function Page() {
     setEmail(formData.get("email") as string);
     formAction(formData);
   };
+
+  // Wait for registration status to load before rendering
+  if (isRegistrationEnabled === null) {
+    return null;
+  }
 
   return (
     <div className="flex h-dvh w-screen items-start justify-center bg-background pt-12 md:items-center md:pt-0">
