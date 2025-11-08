@@ -1,22 +1,10 @@
-import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
-import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
-import { awsCredentialsProvider } from '@vercel/oidc-aws-credentials-provider';
+import { bedrock } from "@ai-sdk/amazon-bedrock";
 import {
   customProvider,
   extractReasoningMiddleware,
   wrapLanguageModel,
 } from "ai";
 import { isTestEnvironment } from "../constants";
-
-const AWS_REGION = process.env.AWS_REGION!;
-const AWS_ROLE_ARN = process.env.AWS_ROLE_ARN!;
-
-const bedrock = createAmazonBedrock({
-  region: AWS_REGION,
-  credentialProvider: awsCredentialsProvider({
-    roleArn: AWS_ROLE_ARN,
-  }),
-});
 
 export const myProvider = isTestEnvironment
   ? (() => {
