@@ -21,16 +21,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow access to login and register pages without authentication
-  if (["/login", "/register"].includes(pathname)) {
-    return NextResponse.next();
-  }
-
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
     secureCookie: !isDevelopmentEnvironment,
   });
+
+  // Allow unauthenticated access to login and register pages
+  if (!token && ["/login", "/register"].includes(pathname)) {
+    return NextResponse.next();
+  }
 
   if (!token) {
     if (isGuestModeEnabled) {
@@ -44,6 +44,7 @@ export async function middleware(request: NextRequest) {
 
   const isGuest = guestRegex.test(token?.email ?? "");
 
+  // Redirect authenticated non-guest users away from login/register pages
   if (token && !isGuest && ["/login", "/register"].includes(pathname)) {
     return NextResponse.redirect(new URL("/", request.url));
   }

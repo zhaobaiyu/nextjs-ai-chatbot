@@ -1,11 +1,15 @@
 import { getMessageByErrorCode } from "@/lib/errors";
+import { isGuestModeEnabled } from "@/lib/constants";
 import { expect, test } from "../fixtures";
 import { generateRandomTestUser } from "../helpers";
 import { AuthPage } from "../pages/auth";
 import { ChatPage } from "../pages/chat";
 
+// Tests for when ENABLE_GUEST_MODE=true
 test.describe
-  .serial("Guest Session", () => {
+  .serial("Guest Session (Guest Mode Enabled)", () => {
+    test.skip(!isGuestModeEnabled, "Guest mode is disabled");
+
     test("Authenticate as guest user when a new session is loaded", async ({
       page,
     }) => {
@@ -15,7 +19,7 @@ test.describe
         throw new Error("Failed to load page");
       }
 
-      let request = response.request();
+      let request: any = response.request();
 
       const chain: string[] = [];
 
@@ -48,27 +52,6 @@ test.describe
       await expect(authMenuItem).toContainText("Login to your account");
     });
 
-    test("Do not authenticate as guest user when an existing non-guest session is active", async ({
-      adaContext,
-    }) => {
-      const response = await adaContext.page.goto("/");
-
-      if (!response) {
-        throw new Error("Failed to load page");
-      }
-
-      let request = response.request();
-
-      const chain: string[] = [];
-
-      while (request) {
-        chain.unshift(request.url());
-        request = request.redirectedFrom();
-      }
-
-      expect(chain).toEqual(["http://localhost:3000/"]);
-    });
-
     test("Allow navigating to /login as guest user", async ({ page }) => {
       await page.goto("/login");
       await page.waitForURL("/login");
@@ -89,6 +72,106 @@ test.describe
 
       const userEmail = page.getByTestId("user-email");
       await expect(userEmail).toContainText("Guest");
+    });
+
+    test("Guest user cannot send more than 20 messages/day", async ({
+      page,
+    }) => {
+      test.fixme();
+      const chatPage = new ChatPage(page);
+      await chatPage.createNewChat();
+
+      for (let i = 0; i <= 20; i++) {
+        await chatPage.sendUserMessage("Why is the sky blue?");
+        await chatPage.isGenerationComplete();
+      }
+
+      await chatPage.sendUserMessage("Why is the sky blue?");
+      await chatPage.expectToastToContain(
+        getMessageByErrorCode("rate_limit:chat")
+      );
+    });
+  });
+
+// Tests for when ENABLE_GUEST_MODE=false
+test.describe
+  .serial("Authentication Required (Guest Mode Disabled)", () => {
+    test.skip(isGuestModeEnabled, "Guest mode is enabled");
+
+    test("Redirect to /login when unauthenticated user tries to access home", async ({
+      page,
+    }) => {
+      const response = await page.goto("/");
+
+      if (!response) {
+        throw new Error("Failed to load page");
+      }
+
+      let request: any = response.request();
+
+      const chain: string[] = [];
+
+      while (request) {
+        chain.unshift(request.url());
+        request = request.redirectedFrom();
+      }
+
+      expect(chain).toEqual([
+        "http://localhost:3000/",
+        "http://localhost:3000/login",
+      ]);
+    });
+
+    test("Allow accessing /login page without authentication", async ({
+      page,
+    }) => {
+      await page.goto("/login");
+      await page.waitForURL("/login");
+      await expect(page).toHaveURL("/login");
+    });
+
+    test("Allow accessing /register page without authentication", async ({
+      page,
+    }) => {
+      await page.goto("/register");
+      await page.waitForURL("/register");
+      await expect(page).toHaveURL("/register");
+    });
+
+    test("Do not allow guest API route when guest mode is disabled", async ({
+      page,
+    }) => {
+      await page.goto("/api/auth/guest");
+
+      // Should redirect to login since guest mode is disabled
+      // The URL may include callback parameters
+      await page.waitForURL(/\/login/);
+      await expect(page.url()).toContain("/login");
+    });
+  });
+
+// Tests that apply regardless of guest mode setting
+test.describe
+  .serial("Authenticated Session (Both Modes)", () => {
+    test("Do not authenticate as guest user when an existing non-guest session is active", async ({
+      adaContext,
+    }) => {
+      const response = await adaContext.page.goto("/");
+
+      if (!response) {
+        throw new Error("Failed to load page");
+      }
+
+      let request: any = response.request();
+
+      const chain: string[] = [];
+
+      while (request) {
+        chain.unshift(request.url());
+        request = request.redirectedFrom();
+      }
+
+      expect(chain).toEqual(["http://localhost:3000/"]);
     });
   });
 
@@ -125,12 +208,37 @@ test.describe
       await page.waitForURL("/");
       await expect(page.getByPlaceholder("Send a message...")).toBeVisible();
 
-      const userEmail = await page.getByTestId("user-email");
+      const userEmail = page.getByTestId("user-email");
       await expect(userEmail).toHaveText(testUser.email);
     });
 
-    test("Log out as non-guest user", async () => {
-      await authPage.logout(testUser.email, testUser.password);
+    test("Log out as non-guest user", async ({ page }) => {
+      await authPage.login(testUser.email, testUser.password);
+      await page.waitForURL("/");
+
+      await authPage.openSidebar();
+
+      const userNavButton = page.getByTestId("user-nav-button");
+      await expect(userNavButton).toBeVisible();
+
+      await userNavButton.click();
+      const userNavMenu = page.getByTestId("user-nav-menu");
+      await expect(userNavMenu).toBeVisible();
+
+      const authMenuItem = page.getByTestId("user-nav-item-auth");
+      await expect(authMenuItem).toContainText("Sign out");
+
+      await authMenuItem.click();
+
+      // When guest mode is disabled, after logout should redirect to login
+      if (!isGuestModeEnabled) {
+        await page.waitForURL(/\/login/);
+        await expect(page.url()).toContain("/login");
+      } else {
+        // When guest mode is enabled, after logout should show Guest
+        const userEmail = page.getByTestId("user-email");
+        await expect(userEmail).toContainText("Guest");
+      }
     });
 
     test("Do not force create a guest session if non-guest session already exists", async ({
@@ -139,13 +247,13 @@ test.describe
       await authPage.login(testUser.email, testUser.password);
       await page.waitForURL("/");
 
-      const userEmail = await page.getByTestId("user-email");
+      const userEmail = page.getByTestId("user-email");
       await expect(userEmail).toHaveText(testUser.email);
 
       await page.goto("/api/auth/guest");
       await page.waitForURL("/");
 
-      const updatedUserEmail = await page.getByTestId("user-email");
+      const updatedUserEmail = page.getByTestId("user-email");
       await expect(updatedUserEmail).toHaveText(testUser.email);
     });
 
@@ -184,26 +292,3 @@ test.describe
       await expect(page).toHaveURL("/");
     });
   });
-
-test.describe("Entitlements", () => {
-  let chatPage: ChatPage;
-
-  test.beforeEach(({ page }) => {
-    chatPage = new ChatPage(page);
-  });
-
-  test("Guest user cannot send more than 20 messages/day", async () => {
-    test.fixme();
-    await chatPage.createNewChat();
-
-    for (let i = 0; i <= 20; i++) {
-      await chatPage.sendUserMessage("Why is the sky blue?");
-      await chatPage.isGenerationComplete();
-    }
-
-    await chatPage.sendUserMessage("Why is the sky blue?");
-    await chatPage.expectToastToContain(
-      getMessageByErrorCode("rate_limit:chat")
-    );
-  });
-});
